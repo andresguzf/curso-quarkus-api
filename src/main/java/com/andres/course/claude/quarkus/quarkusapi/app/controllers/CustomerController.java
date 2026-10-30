@@ -4,6 +4,7 @@ import com.andres.course.claude.quarkus.quarkusapi.app.models.dto.CustomerDto;
 import com.andres.course.claude.quarkus.quarkusapi.app.services.CustomerService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
@@ -56,22 +57,23 @@ public class CustomerController {
     @GET
     @Path("/search")
     @Operation(summary = "Busca clientes por nombre o apellido, sin distinguir mayúsculas")
-    public List<CustomerDto> searchByName(@QueryParam("term") @NotBlank String term) {
+    public List<CustomerDto> searchByName(@QueryParam("term") @NotBlank(message = "Indica un texto para buscar") String term) {
         return service.searchByName(term);
     }
 
     @POST
     @Operation(summary = "Crea un cliente")
-    public Response create(@Valid CustomerDto dto) {
-        CustomerDto created = service.create(dto);
+    public Response create(@Valid @NotNull(message = "Envía los datos del cliente") CustomerDto customer) {
+        CustomerDto created = service.create(customer);
         return Response.created(URI.create("/api/customers/" + created.id())).entity(created).build();
     }
 
     @PUT
     @Path("/{id}")
     @Operation(summary = "Actualiza un cliente")
-    public CustomerDto update(@PathParam("id") Long id, @Valid CustomerDto dto) {
-        return service.update(id, dto);
+    public CustomerDto update(@PathParam("id") Long id,
+                              @Valid @NotNull(message = "Envía los datos del cliente") CustomerDto customer) {
+        return service.update(id, customer);
     }
 
     @DELETE

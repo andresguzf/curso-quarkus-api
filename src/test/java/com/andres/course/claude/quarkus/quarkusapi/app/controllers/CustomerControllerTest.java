@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.endsWith;
 import static org.hamcrest.Matchers.hasSize;
@@ -54,11 +55,52 @@ class CustomerControllerTest {
     }
 
     @Test
-    void createWithInvalidDataReturns400() {
+    void createWithInvalidDataReturns400WithFieldErrors() {
         given().contentType(ContentType.JSON)
                 .body(json("", "Pérez", "no-es-un-email"))
                 .when().post(PATH)
-                .then().statusCode(400);
+                .then().statusCode(400)
+                .contentType(ContentType.JSON)
+                .body("status", is(400))
+                .body("error", is("Solicitud inválida"))
+                .body("message", is("Algunos datos no son válidos. Revisa los campos e inténtalo de nuevo."))
+                .body("path", is(PATH))
+                .body("timestamp", notNullValue())
+                .body("errors.keySet()", containsInAnyOrder("email", "name"))
+                .body("errors.name", contains("El nombre es obligatorio"))
+                .body("errors.email", contains("El email no tiene un formato válido"));
+    }
+
+    @Test
+    void fieldWithSeveralFailuresListsAllItsMessages() {
+        String longEmail = "a".repeat(150) + "@ejemplo";
+
+        given().contentType(ContentType.JSON)
+                .body(json("Ana", "Pérez", longEmail))
+                .when().post(PATH)
+                .then().statusCode(400)
+                .body("errors.keySet()", contains("email"))
+                .body("errors.email", containsInAnyOrder(
+                        "El email no puede tener más de 150 caracteres",
+                        "El email no tiene un formato válido"));
+    }
+
+    @Test
+    void createWithoutBodyReturns400() {
+        given().contentType(ContentType.JSON)
+                .when().post(PATH)
+                .then().statusCode(400)
+                .body("errors.customer", contains("Envía los datos del cliente"));
+    }
+
+    @Test
+    void createWithMalformedJsonReturns400() {
+        given().contentType(ContentType.JSON)
+                .body("{\"name\": \"Ana\",")
+                .when().post(PATH)
+                .then().statusCode(400)
+                .body("message", is("El cuerpo de la solicitud no es un JSON válido. Revisa el formato e inténtalo de nuevo."))
+                .body("errors", nullValue());
     }
 
     @Test
@@ -68,7 +110,10 @@ class CustomerControllerTest {
         given().contentType(ContentType.JSON)
                 .body(json("Otra", "Persona", "ana@ejemplo.com"))
                 .when().post(PATH)
-                .then().statusCode(409);
+                .then().statusCode(409)
+                .body("status", is(409))
+                .body("error", is("Conflicto"))
+                .body("message", is("Ya existe un cliente registrado con el email ana@ejemplo.com."));
     }
 
     @Test
@@ -91,7 +136,20 @@ class CustomerControllerTest {
                 .body("email", is("ana@ejemplo.com"));
 
         given().when().get(PATH + "/999999")
-                .then().statusCode(404);
+                .then().statusCode(404)
+                .body("error", is("No encontrado"))
+                .body("message", is("No encontramos un cliente con el id 999999."))
+                .body("path", is(PATH + "/999999"));
+    }
+
+    @Test
+    void unknownRouteReturns404Json() {
+        given().when().get("/api/no-existe")
+                .then().statusCode(404)
+                .contentType(ContentType.JSON)
+                .body("error", is("No encontrado"))
+                .body("message", is("La ruta o el recurso que buscas no existe. Revisa la URL e inténtalo de nuevo."))
+                .body("path", is("/api/no-existe"));
     }
 
     @Test
@@ -121,7 +179,8 @@ class CustomerControllerTest {
     @Test
     void searchWithoutTermReturns400() {
         given().when().get(PATH + "/search")
-                .then().statusCode(400);
+                .then().statusCode(400)
+                .body("errors.term", contains("Indica un texto para buscar"));
     }
 
     @Test

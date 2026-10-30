@@ -106,6 +106,34 @@ volumen correspondiente (`down -v`), porque solo se aplican al crearlo.
 
 El email es único: si ya está registrado por otro cliente, la API responde **409**.
 
+### Errores
+
+Todos los errores responden con el mismo JSON (`GlobalExceptionMapper`), con mensajes simples
+para el usuario final. `errors` solo aparece en los errores de validación: cada campo que falló,
+con la lista de sus mensajes.
+
+```json
+{
+  "status": 400,
+  "error": "Solicitud inválida",
+  "message": "Algunos datos no son válidos. Revisa los campos e inténtalo de nuevo.",
+  "path": "/api/customers",
+  "timestamp": "2026-10-30T14:07:48.317992",
+  "errors": {
+    "email": ["El email no puede tener más de 150 caracteres", "El email no tiene un formato válido"],
+    "name": ["El nombre es obligatorio"]
+  }
+}
+```
+
+| Status | Cuándo |
+|---|---|
+| 400 | Campos inválidos, body vacío, JSON mal formado o falta `term` en la búsqueda |
+| 404 | El cliente no existe o la ruta no existe |
+| 405 | Método HTTP no permitido en esa ruta |
+| 409 | El email ya está registrado por otro cliente |
+| 500 | Error inesperado (el detalle queda solo en el log) |
+
 Ejemplo:
 
 ```bash
@@ -125,6 +153,7 @@ repositories/  clases Panache (@ApplicationScoped implements PanacheRepository<T
 entities/      entidades JPA con auditoría createdAt / updatedAt
 models/dto/    records usados como request y response
 mappers/       conversión explícita entre entidad y DTO
+exceptions/    manejo global de errores (GlobalExceptionMapper)
 ```
 
 - Los controllers inyectan la interface del service y solo trabajan con DTO.

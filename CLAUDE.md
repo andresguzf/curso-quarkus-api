@@ -41,6 +41,7 @@ repositories/  CustomerRepository        clase @ApplicationScoped implements Pan
 entities/      Customer                  @Entity, tabla customers
 models/dto/    CustomerDto               record usado como request y response
 mappers/       CustomerMapper            conversión explícita entity <-> dto
+exceptions/    GlobalExceptionMapper     @ServerExceptionMapper: todo error sale como ErrorDto JSON
 ```
 
 Tests en `src/test/java/.../app/` con la misma estructura (`services/`, `controllers/`).
@@ -51,8 +52,8 @@ Tests en `src/test/java/.../app/` con la misma estructura (`services/`, `control
 - **Controllers**: solo REST, validan con `@Valid`, inyectan la *interface* del service y
   devuelven DTO. Nunca usan repositorios ni entidades.
 - **Services**: interface `XxxService` + `XxxServiceImpl` `@ApplicationScoped`. Se inyecta
-  siempre la interface. `@Transactional` en las escrituras. Errores: `NotFoundException` (404)
-  y `ClientErrorException` con `CONFLICT` (409).
+  siempre la interface. `@Transactional` en las escrituras. Errores: `NotFoundException` (404) y
+  `ClientErrorException` `CONFLICT` (409) con mensaje simple; `GlobalExceptionMapper` arma el JSON.
 - **Repositories**: una sola clase `@ApplicationScoped` que implementa `PanacheRepository<T>`,
   sin interface ni `Impl`. Consultas propias como métodos públicos.
 - **Entities**: no extienden `PanacheEntity`. `id` `Long` con `IDENTITY`. Auditoría con

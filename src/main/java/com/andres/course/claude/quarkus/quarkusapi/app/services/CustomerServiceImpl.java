@@ -37,7 +37,7 @@ public class CustomerServiceImpl implements CustomerService {
     public CustomerDto findByEmail(String email) {
         return repository.findByEmail(email)
                 .map(mapper::toDto)
-                .orElseThrow(() -> new NotFoundException("Customer con email " + email + " no existe"));
+                .orElseThrow(() -> new NotFoundException("No encontramos un cliente con el email " + email + "."));
     }
 
     @Override
@@ -74,16 +74,20 @@ public class CustomerServiceImpl implements CustomerService {
     @Transactional
     public void delete(Long id) {
         if (!repository.deleteById(id)) {
-            throw new NotFoundException("Customer " + id + " no existe");
+            throw notFound(id);
         }
     }
 
     private Customer getOrThrow(Long id) {
         return repository.findByIdOptional(id)
-                .orElseThrow(() -> new NotFoundException("Customer " + id + " no existe"));
+                .orElseThrow(() -> notFound(id));
+    }
+
+    private NotFoundException notFound(Long id) {
+        return new NotFoundException("No encontramos un cliente con el id " + id + ".");
     }
 
     private ClientErrorException emailInUse(String email) {
-        return new ClientErrorException("El email " + email + " ya está registrado", Response.Status.CONFLICT);
+        return new ClientErrorException("Ya existe un cliente registrado con el email " + email + ".", Response.Status.CONFLICT);
     }
 }
