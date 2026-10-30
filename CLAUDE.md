@@ -86,7 +86,7 @@ Tests en `src/test/java/.../app/` con la misma estructura (`services/`, `control
 
 | Skill | Ubicación | Propósito |
 |---|---|---|
-| `quarkus-best-practices` | `.claude/skills/quarkus-best-practices/` | Genera el proyecto desde code.quarkus.io (Java 25, Maven, Quarkus LTS >= 3.40.1, jar) y crea o modifica sus capas: controllers, services (interface + Impl), repositories Panache, entities, DTO record y mappers. Agrega Panache + PostgreSQL bajo demanda (`add-persistence`). |
+| `quarkus-best-practices` | `.claude/skills/quarkus-best-practices/` | Genera el proyecto desde code.quarkus.io (Java 25, Maven, Quarkus LTS >= 3.40.1, jar) y crea o modifica sus capas: controllers, services (interface + Impl), repositories Panache, entities, DTO record, mappers y manejo global de errores (`GlobalExceptionMapper` + `ErrorDto`). Agrega Panache + PostgreSQL bajo demanda (`add-persistence`). |
 
 La carpeta es un symlink a `../2-quarkus-arc/.claude/skills/quarkus-best-practices`, la única
 fuente de la verdad: cualquier cambio al skill se hace en `2-quarkus-arc`, nunca copiando archivos aquí.
