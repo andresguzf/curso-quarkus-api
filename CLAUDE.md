@@ -65,11 +65,14 @@ Tests en `src/test/java/.../app/` con la misma estructura (`services/`, `control
 
 ## Base de datos y perfiles
 
-- **dev**: PostgreSQL local con `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` leídas de `.env`
-  (copiar desde `.env.example`). Esquema `drop-and-create` y SQL en log.
-- **test**: sin URL, Dev Services levanta `postgres:18` en Docker. Esquema `drop-and-create`.
-- **prod**: mismas variables de entorno; esquema en `validate`.
+- **dev**: `compose-devservices.yml` (Compose Dev Services) con `quarkusapi-postgres` (5432) y
+  `quarkusapi-pgadmin` (5050). `quarkus:dev` los crea o arranca solo y no los detiene
+  (`stop-services=false`, sin Ryuk). Datos en volúmenes `quarkusapi-*-data`. Esquema `update`.
+  No definir `jdbc.url` en dev: desactiva Dev Services.
+- **test**: compose desactivado; Dev Services crea un `postgres:18` temporal. `drop-and-create`.
+- **prod**: `DB_URL`, `DB_USERNAME` y `DB_PASSWORD` como variables de entorno; esquema `validate`.
 - `.env` está en `.gitignore`: nunca versionarlo ni escribir credenciales reales en el código.
+- pgAdmin en http://localhost:5050 (`PGADMIN_EMAIL`/`PGADMIN_PASSWORD`); servidor en `docker/pgadmin/servers.json`.
 
 ## Tests
 

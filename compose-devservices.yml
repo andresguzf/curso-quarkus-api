@@ -1,0 +1,49 @@
+# Servicios de desarrollo: PostgreSQL + pgAdmin.
+# ./mvnw quarkus:dev los levanta solo (Compose Dev Services): si ya corren los reutiliza y si están
+# detenidos los arranca. No se borran al detener la app y Docker los inicia con su propio arranque.
+# Credenciales: .env de la raíz (docker compose lo lee automáticamente).
+name: quarkusapi
+
+services:
+  postgres:
+    image: postgres:18
+    container_name: quarkusapi-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: quarkusapi
+      POSTGRES_USER: ${DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+    volumes:
+      # postgres:18 guarda los datos bajo /var/lib/postgresql/18/docker
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: quarkusapi-pgadmin
+    restart: unless-stopped
+    ports:
+      - "5050:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@example.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-postgres}
+      # Sin pantalla de "master password" para guardar contraseñas de servidores
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+      # Registra el servidor al crear el contenedor por primera vez
+      - ./docker/pgadmin/servers.json:/pgadmin4/servers.json:ro
+    depends_on:
+      - postgres
+
+volumes:
+  postgres-data:
+    name: quarkusapi-postgres-data
+  pgadmin-data:
+    name: quarkusapi-pgadmin-data

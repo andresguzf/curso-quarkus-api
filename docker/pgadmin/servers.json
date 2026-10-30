@@ -1,0 +1,13 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "quarkusapi (dev)",
+      "Group": "Quarkus",
+      "Host": "postgres",
+      "Port": 5432,
+      "MaintenanceDB": "quarkusapi",
+      "Username": "postgres",
+      "SSLMode": "prefer"
+    }
+  }
+}
