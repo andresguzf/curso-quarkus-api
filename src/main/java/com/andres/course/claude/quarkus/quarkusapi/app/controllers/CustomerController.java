@@ -1,0 +1,84 @@
+package com.andres.course.claude.quarkus.quarkusapi.app.controllers;
+
+import com.andres.course.claude.quarkus.quarkusapi.app.models.dto.CustomerDto;
+import com.andres.course.claude.quarkus.quarkusapi.app.services.CustomerService;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DELETE;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.PUT;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
+import org.eclipse.microprofile.openapi.annotations.Operation;
+import org.eclipse.microprofile.openapi.annotations.tags.Tag;
+
+import java.net.URI;
+import java.util.List;
+
+@Path("/api/customers")
+@Produces(MediaType.APPLICATION_JSON)
+@Consumes(MediaType.APPLICATION_JSON)
+@Tag(name = "Customers")
+public class CustomerController {
+
+    private final CustomerService service;
+
+    public CustomerController(CustomerService service) {
+        this.service = service;
+    }
+
+    @GET
+    @Operation(summary = "Lista todos los clientes")
+    public List<CustomerDto> findAll() {
+        return service.findAll();
+    }
+
+    @GET
+    @Path("/{id}")
+    @Operation(summary = "Busca un cliente por id")
+    public CustomerDto findById(@PathParam("id") Long id) {
+        return service.findById(id);
+    }
+
+    @GET
+    @Path("/email/{email}")
+    @Operation(summary = "Busca un cliente por email")
+    public CustomerDto findByEmail(@PathParam("email") String email) {
+        return service.findByEmail(email);
+    }
+
+    @GET
+    @Path("/search")
+    @Operation(summary = "Busca clientes por nombre o apellido, sin distinguir mayúsculas")
+    public List<CustomerDto> searchByName(@QueryParam("term") @NotBlank String term) {
+        return service.searchByName(term);
+    }
+
+    @POST
+    @Operation(summary = "Crea un cliente")
+    public Response create(@Valid CustomerDto dto) {
+        CustomerDto created = service.create(dto);
+        return Response.created(URI.create("/api/customers/" + created.id())).entity(created).build();
+    }
+
+    @PUT
+    @Path("/{id}")
+    @Operation(summary = "Actualiza un cliente")
+    public CustomerDto update(@PathParam("id") Long id, @Valid CustomerDto dto) {
+        return service.update(id, dto);
+    }
+
+    @DELETE
+    @Path("/{id}")
+    @Operation(summary = "Elimina un cliente")
+    public Response delete(@PathParam("id") Long id) {
+        service.delete(id);
+        return Response.noContent().build();
+    }
+}
