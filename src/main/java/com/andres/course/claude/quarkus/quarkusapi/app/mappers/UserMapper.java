@@ -13,7 +13,8 @@ public class UserMapper {
         if (entity == null) {
             return null;
         }
-        return new UserDto(entity.getId(), entity.getEmail(), null, entity.getRole().group());
+        return new UserDto(entity.getId(), entity.getEmail(), null, entity.getRole().group(),
+                entity.getCreatedAt(), entity.getUpdatedAt());
     }
 
     // dto -> entity: el password lo hashea el service, no el mapper

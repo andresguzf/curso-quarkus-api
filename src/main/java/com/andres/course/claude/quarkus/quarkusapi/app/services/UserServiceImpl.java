@@ -4,9 +4,12 @@ import com.andres.course.claude.quarkus.quarkusapi.app.entities.Role;
 import com.andres.course.claude.quarkus.quarkusapi.app.entities.User;
 import com.andres.course.claude.quarkus.quarkusapi.app.mappers.UserMapper;
 import com.andres.course.claude.quarkus.quarkusapi.app.models.dto.LoginDto;
+import com.andres.course.claude.quarkus.quarkusapi.app.models.dto.PageDto;
 import com.andres.course.claude.quarkus.quarkusapi.app.models.dto.UserDto;
+import com.andres.course.claude.quarkus.quarkusapi.app.models.dto.UserFilter;
 import com.andres.course.claude.quarkus.quarkusapi.app.repositories.UserRepository;
 import com.andres.course.claude.quarkus.quarkusapi.app.security.PasswordHasher;
+import io.quarkus.hibernate.orm.panache.PanacheQuery;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.ClientErrorException;
@@ -31,8 +34,10 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public List<UserDto> findAll() {
-        return repository.listAll().stream().map(mapper::toDto).toList();
+    public PageDto<UserDto> search(UserFilter filter) {
+        PanacheQuery<User> query = repository.search(filter);
+        List<UserDto> content = query.list().stream().map(mapper::toDto).toList();
+        return PageDto.of(content, filter.page(), filter.size(), query.count());
     }
 
     @Override

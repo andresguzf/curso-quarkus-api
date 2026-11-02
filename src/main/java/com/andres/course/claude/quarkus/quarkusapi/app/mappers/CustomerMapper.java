@@ -12,7 +12,8 @@ public class CustomerMapper {
         if (entity == null) {
             return null;
         }
-        return new CustomerDto(entity.getId(), entity.getName(), entity.getLastName(), entity.getEmail());
+        return new CustomerDto(entity.getId(), entity.getName(), entity.getLastName(), entity.getEmail(),
+                entity.getCreatedAt(), entity.getUpdatedAt());
     }
 
     // dto -> entity

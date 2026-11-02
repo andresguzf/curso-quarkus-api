@@ -63,11 +63,38 @@ class UserControllerTest {
 
         given().when().get(PATH)
                 .then().statusCode(200)
-                .body("email", containsInAnyOrder("ana@ejemplo.com", "luis@ejemplo.com"))
-                .body("password", contains(null, null));
+                .body("content.email", containsInAnyOrder("ana@ejemplo.com", "luis@ejemplo.com"))
+                .body("content.password", contains(null, null))
+                .body("content.createdAt", contains(notNullValue(), notNullValue()));
         given().when().get(PATH + "/" + id)
                 .then().statusCode(200)
                 .body("$", not(hasKey("password")));
+    }
+
+    @Test
+    void findAllFiltersByRoleAndEmail() {
+        create("ana@ejemplo.com", "secreto123", "user");
+        create("luis@ejemplo.com", "secreto123", "admin");
+        create("marta@otro.com", "secreto123", "admin");
+
+        given().queryParam("role", "admin").queryParam("sort", "email").queryParam("dir", "asc")
+                .when().get(PATH)
+                .then().statusCode(200)
+                .body("content.email", contains("luis@ejemplo.com", "marta@otro.com"))
+                .body("totalElements", is(2));
+        given().queryParam("role", "admin").queryParam("email", "EJEMPLO")
+                .when().get(PATH)
+                .then().statusCode(200)
+                .body("content.email", contains("luis@ejemplo.com"));
+    }
+
+    @Test
+    void findAllWithInvalidRoleOrSortReturns400() {
+        given().queryParam("role", "root").queryParam("sort", "password")
+                .when().get(PATH)
+                .then().statusCode(400)
+                .body("errors.role", contains("El rol debe ser user o admin"))
+                .body("errors.sort", contains("Solo se puede ordenar por email, role o createdAt"));
     }
 
     @Test

@@ -1,13 +1,14 @@
 package com.andres.course.claude.quarkus.quarkusapi.app.services;
 
 import com.andres.course.claude.quarkus.quarkusapi.app.models.dto.LoginDto;
+import com.andres.course.claude.quarkus.quarkusapi.app.models.dto.PageDto;
 import com.andres.course.claude.quarkus.quarkusapi.app.models.dto.UserDto;
-
-import java.util.List;
+import com.andres.course.claude.quarkus.quarkusapi.app.models.dto.UserFilter;
 
 public interface UserService {
 
-    List<UserDto> findAll();
+    // Página de usuarios según los filtros y el orden pedidos
+    PageDto<UserDto> search(UserFilter filter);
 
     UserDto findById(Long id);
 

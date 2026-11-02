@@ -13,6 +13,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.time.LocalDate;
+
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
@@ -50,8 +52,8 @@ class CustomerControllerTest {
                 .body("name", is("Ana"))
                 .body("lastName", is("Pérez"))
                 .body("email", is("ana@ejemplo.com"))
-                // Las fechas de auditoría no viajan en el DTO
-                .body("createdAt", nullValue())
+                // Las fechas de auditoría se devuelven: createdAt al crear, updatedAt recién al editar
+                .body("createdAt", notNullValue())
                 .body("updatedAt", nullValue())
                 .extract();
 
@@ -122,14 +124,71 @@ class CustomerControllerTest {
     }
 
     @Test
-    void findAllReturnsCustomers() {
+    void findAllReturnsFirstPageNewestFirst() {
         create("Ana", "Pérez", "ana@ejemplo.com");
         create("Luis", "Soto", "luis@ejemplo.com");
 
         given().when().get(PATH)
                 .then().statusCode(200)
-                .body("$", hasSize(2))
-                .body("name", containsInAnyOrder("Ana", "Luis"));
+                .body("content", hasSize(2))
+                .body("content.name", contains("Luis", "Ana"))
+                .body("page", is(0))
+                .body("size", is(10))
+                .body("totalElements", is(2))
+                .body("totalPages", is(1));
+    }
+
+    @Test
+    void findAllPaginatesAndSorts() {
+        create("Ana", "Pérez", "ana@ejemplo.com");
+        create("Luis", "Soto", "luis@ejemplo.com");
+        create("Marta", "Gómez", "marta@ejemplo.com");
+
+        given().queryParam("page", 1).queryParam("size", 2)
+                .queryParam("sort", "lastName").queryParam("dir", "asc")
+                .when().get(PATH)
+                .then().statusCode(200)
+                .body("content.lastName", contains("Soto"))
+                .body("page", is(1))
+                .body("totalElements", is(3))
+                .body("totalPages", is(2));
+    }
+
+    @Test
+    void findAllFiltersByTextAndCreationDate() {
+        create("Ana", "Pérez", "ana@ejemplo.com");
+        create("Luis", "Pereira", "luis@otro.com");
+        create("Marta", "Gómez", "marta@ejemplo.com");
+        String today = LocalDate.now().toString();
+        String yesterday = LocalDate.now().minusDays(1).toString();
+
+        given().queryParam("lastName", "PEREI")
+                .when().get(PATH)
+                .then().statusCode(200)
+                .body("content.name", contains("Luis"));
+        given().queryParam("name", "AN").queryParam("email", "ejemplo")
+                .when().get(PATH)
+                .then().statusCode(200)
+                .body("content.name", contains("Ana"));
+        given().queryParam("name", "ma").queryParam("createdFrom", today).queryParam("createdTo", today)
+                .when().get(PATH)
+                .then().statusCode(200)
+                .body("content.name", contains("Marta"));
+        given().queryParam("createdTo", yesterday)
+                .when().get(PATH)
+                .then().statusCode(200)
+                .body("content", hasSize(0))
+                .body("totalPages", is(0));
+    }
+
+    @Test
+    void findAllWithInvalidParamsReturns400() {
+        given().queryParam("sort", "password").queryParam("dir", "up").queryParam("size", 500)
+                .when().get(PATH)
+                .then().statusCode(400)
+                .body("errors.sort", contains("Solo se puede ordenar por name, lastName, email o createdAt"))
+                .body("errors.dir", contains("La dirección debe ser asc o desc"))
+                .body("errors.size", contains("El tamaño de página no puede ser mayor que 100"));
     }
 
     @Test
@@ -237,7 +296,7 @@ class CustomerControllerTest {
     void userRoleCanListSearchAndRead() {
         long id = createAsAdmin("Ana", "Pérez", "ana@ejemplo.com");
 
-        given().when().get(PATH).then().statusCode(200).body("$", hasSize(1));
+        given().when().get(PATH).then().statusCode(200).body("content", hasSize(1));
         given().when().get(PATH + "/" + id).then().statusCode(200);
         given().queryParam("term", "ana").when().get(PATH + "/search").then().statusCode(200);
         given().when().get(PATH + "/email/ana@ejemplo.com").then().statusCode(200);
