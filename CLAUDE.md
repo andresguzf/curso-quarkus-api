@@ -85,7 +85,7 @@ exceptions/    GlobalExceptionMapper (todo error es ErrorDto) y EmptyErrorRespon
 
 | Skill | Ubicación | Propósito |
 |---|---|---|
-| `quarkus-best-practices` | `.claude/skills/quarkus-best-practices/` | Genera el proyecto desde code.quarkus.io (Java 25, Maven, Quarkus LTS >= 3.40.1, jar) y crea o modifica sus capas: controllers, services (interface + Impl), repositories Panache, entities, DTO record, mappers y manejo global de errores (`GlobalExceptionMapper` + `ErrorDto`). Agrega Panache + PostgreSQL bajo demanda (`add-persistence`). |
+| `quarkus-best-practices` | `.claude/skills/quarkus-best-practices/` | Genera el proyecto desde code.quarkus.io (Java 25, Maven, Quarkus LTS >= 3.40.1, jar) y crea o modifica sus capas: controllers, services (interface + Impl), repositories Panache, entities, DTO record, mappers y manejo global de errores (`GlobalExceptionMapper` + `ErrorDto`). Agrega bajo demanda Panache + PostgreSQL (`add-persistence`) y seguridad con JWT en cookie HttpOnly, roles y CSRF (`add-security`). |
 
 La carpeta es un symlink a `../2-quarkus-arc/.claude/skills/quarkus-best-practices`, la única
 fuente de la verdad: cualquier cambio al skill se hace en `2-quarkus-arc`, nunca copiando archivos aquí.
@@ -95,5 +95,6 @@ fuente de la verdad: cualquier cambio al skill se hace en `2-quarkus-arc`, nunca
 - Usa `quarkus-best-practices` cuando el usuario pida crear una API básica, un microservicio o un proyecto con Quarkus.
 - Usa `quarkus-best-practices` cuando el usuario pida crear, agregar o modificar un entity, DTO, mapper, repository, service, controller o endpoint REST.
 - Usa `quarkus-best-practices` cuando el usuario pida agregar persistencia (Hibernate ORM Panache, PostgreSQL), por comando (`add-persistence`) o en lenguaje natural ("quiero agregar Panache con Postgres"). Este proyecto ya la tiene.
-- Antes de escribir una capa, lee `references/layer-templates.md` del skill.
+- Usa `quarkus-best-practices` cuando el usuario pida seguridad (login, usuarios, roles, JWT, CSRF) o `add-security`. Este proyecto ya la tiene.
+- Antes de escribir una capa, lee `references/layer-templates.md` del skill (y `references/security-templates.md` para la seguridad).
 - Para ejecutar la aplicación localmente usa siempre `./mvnw quarkus:dev`.
