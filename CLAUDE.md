@@ -1,86 +1,85 @@
 # CLAUDE.md
 
-API REST de clientes (`Customer`) hecha con Quarkus, parte del curso de Quarkus.
+API REST de clientes (`Customer`) con usuarios y roles, hecha con Quarkus (curso de Quarkus).
 Repositorio: https://github.com/andresguzf/curso-quarkus-api
 
 ## Stack y versiones
 
-| Componente | Versión |
-|---|---|
-| Java | 25 (`maven.compiler.release`) |
-| Quarkus (plataforma LTS) | 3.40.1.1 |
-| Hibernate ORM (con Panache clásico) | 7.4.9.Final |
-| Driver PostgreSQL | 42.7.13 |
-| Maven (wrapper `./mvnw`) | 3.9.16 |
-| Tests | JUnit 5 (`quarkus-junit`) + REST Assured |
+Java 25 · Quarkus 3.40.1.1 LTS · Hibernate ORM 7.4.9.Final (Panache clásico) · PostgreSQL (driver
+42.7.13) · Maven 3.9.16 (`./mvnw`) · Tests: JUnit 5, REST Assured y `quarkus-test-security`.
 
-Extensiones: `quarkus-rest-jackson`, `quarkus-arc`, `quarkus-hibernate-validator`,
-`quarkus-smallrye-openapi`, `quarkus-hibernate-orm-panache`, `quarkus-jdbc-postgresql`.
-Packaging `jar` (fast-jar en `target/quarkus-app/`). Configuración solo en `application.properties`.
+Extensiones: `quarkus-rest-jackson`, `quarkus-arc`, `quarkus-hibernate-validator`, `quarkus-smallrye-openapi`,
+`quarkus-hibernate-orm-panache`, `quarkus-jdbc-postgresql`, `quarkus-smallrye-jwt`, `quarkus-smallrye-jwt-build`,
+`quarkus-elytron-security-common` (bcrypt) y `quarkus-rest-csrf`. Packaging `jar`. Config solo en `application.properties`.
 
 ## Comandos
 
 ```bash
-./mvnw quarkus:dev                      # dev mode: live reload, Dev UI en /q/dev-ui
-./mvnw test                             # tests (levanta PostgreSQL con Docker)
-./mvnw package -DskipTests              # compila el jar
-java -jar target/quarkus-app/quarkus-run.jar
+./mvnw quarkus:dev            # dev mode; Swagger UI en /q/swagger-ui, Dev UI en /q/dev-ui
+./mvnw test                   # tests (levanta PostgreSQL con Docker)
+./mvnw package -DskipTests    # jar en target/quarkus-app/
 ```
-
-Swagger UI: http://localhost:8080/q/swagger-ui
 
 ## Estructura
 
 Package base: `com.andres.course.claude.quarkus.quarkusapi.app`
 
 ```
-controllers/   CustomerController        endpoints REST en /api/customers
-services/      CustomerService           interface (contrato de negocio)
-               CustomerServiceImpl       @ApplicationScoped, lógica y @Transactional
-repositories/  CustomerRepository        clase @ApplicationScoped implements PanacheRepository
-entities/      Customer                  @Entity, tabla customers
-models/dto/    CustomerDto               record usado como request y response
-mappers/       CustomerMapper            conversión explícita entity <-> dto
-exceptions/    GlobalExceptionMapper     @ServerExceptionMapper: todo error sale como ErrorDto JSON
+controllers/   CustomerController, UserController (/api/users), AuthController (/api/auth)
+services/      XxxService (interface) + XxxServiceImpl (@ApplicationScoped, @Transactional)
+repositories/  CustomerRepository, UserRepository: clase @ApplicationScoped implements PanacheRepository
+entities/      Customer, User (tabla users), Role (enum USER/ADMIN + constantes Role.Names)
+models/dto/    CustomerDto, UserDto (password WRITE_ONLY), LoginDto, ErrorDto
+mappers/       CustomerMapper, UserMapper: conversión explícita, nunca copian el password
+security/      PasswordHasher (bcrypt), TokenService (firma el JWT), AdminSeeder (admin inicial)
+exceptions/    GlobalExceptionMapper (todo error es ErrorDto) y EmptyErrorResponseFilter (400 de CSRF)
 ```
-
-Tests en `src/test/java/.../app/` con la misma estructura (`services/`, `controllers/`).
 
 ## Convenciones de arquitectura
 
 - Orden para un recurso nuevo: entity → repository → DTO → mapper → service → controller.
-- **Controllers**: solo REST, validan con `@Valid`, inyectan la *interface* del service y
-  devuelven DTO. Nunca usan repositorios ni entidades.
-- **Services**: interface `XxxService` + `XxxServiceImpl` `@ApplicationScoped`. Se inyecta
-  siempre la interface. `@Transactional` en las escrituras. Errores: `NotFoundException` (404) y
-  `ClientErrorException` `CONFLICT` (409) con mensaje simple; `GlobalExceptionMapper` arma el JSON.
-- **Repositories**: una sola clase `@ApplicationScoped` que implementa `PanacheRepository<T>`,
-  sin interface ni `Impl`. Consultas propias como métodos públicos.
-- **Entities**: no extienden `PanacheEntity`. `id` `Long` con `IDENTITY`. Auditoría con
-  `createdAt` / `updatedAt` llenadas por `@PrePersist` / `@PreUpdate`, solo con getter.
-- **DTO**: un `record` por recurso; excluye fechas de auditoría y datos sensibles.
-  Bean Validation va en el record.
-- **Mappers**: `toDto`, `toEntity`, `updateEntity` a mano (sin MapStruct); nunca copian
-  `id` ni fechas de auditoría.
-- Inyección por constructor en services, mappers y controllers.
+- **Controllers**: solo REST, `@Valid @NotNull` en el body (nombrado como el recurso), inyectan la
+  *interface* del service y devuelven DTO. Cada endpoint lleva `@PermitAll`, `@Authenticated` o
+  `@RolesAllowed`: `deny-unannotated-endpoints=true` cierra los que no tengan anotación.
+- **Services**: interface + `Impl`; `@Transactional` en escrituras. Errores con mensaje simple:
+  `NotFoundException` (404), `ClientErrorException` `CONFLICT` (409), `NotAuthorizedException` (401).
+- **Repositories**: una sola clase Panache, sin interface ni `Impl`.
+- **Entities**: no extienden `PanacheEntity`; `id` `Long` `IDENTITY`; `createdAt`/`updatedAt` con
+  `@PrePersist`/`@PreUpdate`, solo con getter.
+- **DTO**: un `record` por recurso, Bean Validation con mensajes en español. Sin fechas de auditoría
+  ni datos sensibles; el password de `UserDto` es `@JsonProperty(access = WRITE_ONLY)` y se exige
+  al crear con el grupo `UserDto.OnCreate` (`@ConvertGroup`).
+- **Mappers**: `toDto`, `toEntity`, `updateEntity` a mano; el hash del password lo hace el service.
+- Inyección por constructor.
+
+## Seguridad
+
+- Roles: `user` solo lee clientes (`GET`); `admin` hace el CRUD de clientes y de usuarios.
+- Login (`POST /api/auth/login`) deja el JWT en la cookie `access_token` (`HttpOnly`, `SameSite=Strict`,
+  `Secure` en prod, 1 hora). smallrye-jwt la lee con `mp.jwt.token.header=Cookie`.
+- CSRF (double submit): `GET /api/auth/csrf` entrega la cookie `csrf-token`; todo POST/PUT/DELETE,
+  incluidos login y registro, repite su valor en `X-CSRF-TOKEN`. Sin ella: 400 JSON.
+- Registro público (`POST /api/auth/register`) siempre crea rol `user`. El primer admin lo crea
+  `AdminSeeder` con `ADMIN_EMAIL`/`ADMIN_PASSWORD` si no existe ninguno.
+- Reglas de usuarios: email único, un admin no se elimina a sí mismo, siempre queda al menos un admin.
+- Claves JWT: en dev y test Quarkus genera un par en memoria; en prod `JWT_PRIVATE_KEY_LOCATION` y
+  `JWT_PUBLIC_KEY_LOCATION`. `quarkus.http.auth.proactive=false` para que los 401 pasen por el mapper.
 
 ## Base de datos y perfiles
 
-- **dev**: `compose-devservices.yml` (Compose Dev Services) con `quarkusapi-postgres` (5432) y
-  `quarkusapi-pgadmin` (5050). `quarkus:dev` los crea o arranca solo y no los detiene
-  (`stop-services=false`, sin Ryuk). Datos en volúmenes `quarkusapi-*-data`. Esquema `update`.
+- **dev**: `compose-devservices.yml` con `quarkusapi-postgres` (5432) y `quarkusapi-pgadmin` (5050);
+  `quarkus:dev` los crea o arranca y no los detiene. Volúmenes `quarkusapi-*-data`. Esquema `update`.
   No definir `jdbc.url` en dev: desactiva Dev Services.
-- **test**: compose desactivado; Dev Services crea un `postgres:18` temporal. `drop-and-create`.
-- **prod**: `DB_URL`, `DB_USERNAME` y `DB_PASSWORD` como variables de entorno; esquema `validate`.
+- **test**: sin compose; Dev Services crea un `postgres:18` temporal; `drop-and-create`; sin admin semilla.
+- **prod**: `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`; esquema `validate`.
 - `.env` está en `.gitignore`: nunca versionarlo ni escribir credenciales reales en el código.
-- pgAdmin en http://localhost:5050 (`PGADMIN_EMAIL`/`PGADMIN_PASSWORD`); servidor en `docker/pgadmin/servers.json`.
 
 ## Tests
 
-- `CustomerServiceTest`: `@QuarkusTest` + `@TestTransaction` (rollback por test).
-- `CustomerControllerTest`: REST Assured; cada request confirma su transacción, por eso
-  limpia la tabla en `@BeforeEach` y `@AfterEach` para no afectar otras clases.
-- Requieren Docker o Podman corriendo.
+- Services: `@QuarkusTest` + `@TestTransaction` (rollback por test).
+- Controllers: REST Assured con `@TestSecurity` (admin por defecto) y `Csrf.given()`, que obtiene y
+  reenvía el token CSRF. Limpian sus tablas en `@BeforeEach`/`@AfterEach`.
+- `AuthFlowTest`: flujo real sin `@TestSecurity` (registro, login con cookie, roles, CSRF, logout).
 
 ## Available skills
 

@@ -1,7 +1,9 @@
 package com.andres.course.claude.quarkus.quarkusapi.app.controllers;
 
+import com.andres.course.claude.quarkus.quarkusapi.app.entities.Role;
 import com.andres.course.claude.quarkus.quarkusapi.app.models.dto.CustomerDto;
 import com.andres.course.claude.quarkus.quarkusapi.app.services.CustomerService;
+import jakarta.annotation.security.RolesAllowed;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -26,6 +28,8 @@ import java.util.List;
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 @Tag(name = "Customers")
+// Consultar: user y admin. Crear, editar y eliminar: solo admin (anotado en cada método)
+@RolesAllowed({Role.Names.USER, Role.Names.ADMIN})
 public class CustomerController {
 
     private final CustomerService service;
@@ -62,6 +66,7 @@ public class CustomerController {
     }
 
     @POST
+    @RolesAllowed(Role.Names.ADMIN)
     @Operation(summary = "Crea un cliente")
     public Response create(@Valid @NotNull(message = "Envía los datos del cliente") CustomerDto customer) {
         CustomerDto created = service.create(customer);
@@ -70,6 +75,7 @@ public class CustomerController {
 
     @PUT
     @Path("/{id}")
+    @RolesAllowed(Role.Names.ADMIN)
     @Operation(summary = "Actualiza un cliente")
     public CustomerDto update(@PathParam("id") Long id,
                               @Valid @NotNull(message = "Envía los datos del cliente") CustomerDto customer) {
@@ -78,6 +84,7 @@ public class CustomerController {
 
     @DELETE
     @Path("/{id}")
+    @RolesAllowed(Role.Names.ADMIN)
     @Operation(summary = "Elimina un cliente")
     public Response delete(@PathParam("id") Long id) {
         service.delete(id);

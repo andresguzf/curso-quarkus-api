@@ -3,6 +3,9 @@ package com.andres.course.claude.quarkus.quarkusapi.app.exceptions;
 import com.andres.course.claude.quarkus.quarkusapi.app.models.dto.ErrorDto;
 import com.fasterxml.jackson.core.JacksonException;
 import io.quarkus.logging.Log;
+import io.quarkus.security.AuthenticationFailedException;
+import io.quarkus.security.ForbiddenException;
+import io.quarkus.security.UnauthorizedException;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Path;
@@ -49,6 +52,22 @@ public class GlobalExceptionMapper {
     }
 
     /**
+     * 401: falta la sesión o el JWT de la cookie no es válido o expiró.
+     */
+    @ServerExceptionMapper({UnauthorizedException.class, AuthenticationFailedException.class})
+    public Response handleUnauthorized(RuntimeException exception, UriInfo uriInfo) {
+        return build(401, "Debes iniciar sesión para continuar.", uriInfo, Map.of());
+    }
+
+    /**
+     * 403: hay sesión, pero el rol no permite la operación (por ejemplo, un user que intenta crear un cliente).
+     */
+    @ServerExceptionMapper
+    public Response handleForbidden(ForbiddenException exception, UriInfo uriInfo) {
+        return build(403, "No tienes permisos para realizar esta acción.", uriInfo, Map.of());
+    }
+
+    /**
      * Errores HTTP lanzados por los services ({@code NotFoundException} 404, {@code ClientErrorException} 409...)
      * y por Quarkus REST (ruta inexistente, método no permitido...). Si la excepción trae un mensaje propio se
      * usa; si no, se usa uno genérico según el status.
@@ -78,9 +97,12 @@ public class GlobalExceptionMapper {
     }
 
     private static Response build(int status, String message, UriInfo uriInfo, Map<String, List<String>> errors) {
-        ErrorDto body = new ErrorDto(status, title(status), message, "/" + uriInfo.getPath().replaceFirst("^/", ""),
-                LocalDateTime.now(), errors);
-        return Response.status(status).type(MediaType.APPLICATION_JSON_TYPE).entity(body).build();
+        return Response.status(status).type(MediaType.APPLICATION_JSON_TYPE)
+                .entity(errorBody(status, message, uriInfo.getPath(), errors)).build();
+    }
+
+    static ErrorDto errorBody(int status, String message, String path, Map<String, List<String>> errors) {
+        return new ErrorDto(status, title(status), message, "/" + path.replaceFirst("^/", ""), LocalDateTime.now(), errors);
     }
 
     // El último nodo del path de la violación es el campo (create.dto.email -> email); si es el parámetro
@@ -93,7 +115,7 @@ public class GlobalExceptionMapper {
         return field;
     }
 
-    private static String title(int status) {
+    static String title(int status) {
         return switch (status) {
             case 400 -> "Solicitud inválida";
             case 401 -> "No autenticado";
@@ -107,7 +129,7 @@ public class GlobalExceptionMapper {
         };
     }
 
-    private static String defaultMessage(int status) {
+    static String defaultMessage(int status) {
         return switch (status) {
             case 400 -> "La solicitud no es válida. Revisa los datos e inténtalo de nuevo.";
             case 404 -> "La ruta o el recurso que buscas no existe. Revisa la URL e inténtalo de nuevo.";

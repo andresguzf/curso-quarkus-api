@@ -1,15 +1,18 @@
 package com.andres.course.claude.quarkus.quarkusapi.app.controllers;
 
+import com.andres.course.claude.quarkus.quarkusapi.app.entities.Customer;
 import com.andres.course.claude.quarkus.quarkusapi.app.repositories.CustomerRepository;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.junit.QuarkusTest;
+import io.quarkus.test.security.TestSecurity;
+import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
+import io.restassured.specification.RequestSpecification;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import static io.restassured.RestAssured.given;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
@@ -21,7 +24,9 @@ import static org.hamcrest.Matchers.nullValue;
 
 // Cada request HTTP corre en su propia transacción y confirma sus cambios, así que se limpia la
 // tabla antes y después de cada test para no afectar a otras clases de test
+// Por defecto cada test corre como admin; los casos del rol user lo cambian con su propio @TestSecurity
 @QuarkusTest
+@TestSecurity(user = "admin@ejemplo.com", roles = "admin")
 class CustomerControllerTest {
 
     private static final String PATH = "/api/customers";
@@ -225,6 +230,62 @@ class CustomerControllerTest {
 
         given().when().delete(PATH + "/" + id)
                 .then().statusCode(404);
+    }
+
+    @Test
+    @TestSecurity(user = "user@ejemplo.com", roles = "user")
+    void userRoleCanListSearchAndRead() {
+        long id = createAsAdmin("Ana", "Pérez", "ana@ejemplo.com");
+
+        given().when().get(PATH).then().statusCode(200).body("$", hasSize(1));
+        given().when().get(PATH + "/" + id).then().statusCode(200);
+        given().queryParam("term", "ana").when().get(PATH + "/search").then().statusCode(200);
+        given().when().get(PATH + "/email/ana@ejemplo.com").then().statusCode(200);
+    }
+
+    @Test
+    @TestSecurity(user = "user@ejemplo.com", roles = "user")
+    void userRoleCannotCreateUpdateOrDelete() {
+        long id = createAsAdmin("Ana", "Pérez", "ana@ejemplo.com");
+
+        given().contentType(ContentType.JSON).body(json("Luis", "Soto", "luis@ejemplo.com"))
+                .when().post(PATH)
+                .then().statusCode(403)
+                .body("error", is("Acceso denegado"))
+                .body("message", is("No tienes permisos para realizar esta acción."));
+        given().contentType(ContentType.JSON).body(json("Ana", "Rojas", "ana@ejemplo.com"))
+                .when().put(PATH + "/" + id)
+                .then().statusCode(403);
+        given().when().delete(PATH + "/" + id)
+                .then().statusCode(403);
+    }
+
+    @Test
+    void writeWithoutCsrfTokenReturns400() {
+        RestAssured.given().contentType(ContentType.JSON)
+                .body(json("Ana", "Pérez", "ana@ejemplo.com"))
+                .when().post(PATH)
+                .then().statusCode(400)
+                .contentType(ContentType.JSON)
+                .body("message", is("No pudimos verificar la solicitud: falta el token CSRF o no es válido. "
+                        + "Pide uno nuevo en /api/auth/csrf y envíalo en la cabecera X-CSRF-TOKEN."));
+    }
+
+    // Todas las peticiones de esta clase llevan el token CSRF
+    private static RequestSpecification given() {
+        return Csrf.given();
+    }
+
+    // Inserta directo en la base, sin pasar por la seguridad del endpoint
+    private long createAsAdmin(String name, String lastName, String email) {
+        return QuarkusTransaction.requiringNew().call(() -> {
+            var customer = new Customer();
+            customer.setName(name);
+            customer.setLastName(lastName);
+            customer.setEmail(email);
+            repository.persist(customer);
+            return customer.getId();
+        });
     }
 
     private long create(String name, String lastName, String email) {
