@@ -7,7 +7,10 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import jakarta.validation.groups.Default;
 
-// password es de solo escritura: se recibe al registrar, crear o editar, pero nunca se devuelve en el JSON
+import java.time.LocalDateTime;
+
+// password es de solo escritura: se recibe al registrar, crear o editar, pero nunca se devuelve en el JSON.
+// createdAt y updatedAt son de solo lectura: se devuelven, pero se ignoran al recibir
 public record UserDto(
         Long id,
         @NotBlank(message = "El email es obligatorio")
@@ -19,7 +22,16 @@ public record UserDto(
         @Size(min = 8, max = 72, message = "La contraseña debe tener entre {min} y {max} caracteres")
         String password,
         @Pattern(regexp = "user|admin", message = "El rol debe ser user o admin")
-        String role) {
+        String role,
+        @JsonProperty(access = JsonProperty.Access.READ_ONLY)
+        LocalDateTime createdAt,
+        @JsonProperty(access = JsonProperty.Access.READ_ONLY)
+        LocalDateTime updatedAt) {
+
+    // Sin fechas de auditoría: las completa la entity al guardar
+    public UserDto(Long id, String email, String password, String role) {
+        this(id, email, password, role, null, null);
+    }
 
     // Validaciones de alta (registro y creación): además de las de Default, exige el password.
     // Al editar se valida solo Default: si password viene vacío se conserva el actual

@@ -1,8 +1,11 @@
 package com.andres.course.claude.quarkus.quarkusapi.app.services;
 
+import com.andres.course.claude.quarkus.quarkusapi.app.entities.Role;
 import com.andres.course.claude.quarkus.quarkusapi.app.entities.User;
 import com.andres.course.claude.quarkus.quarkusapi.app.models.dto.LoginDto;
+import com.andres.course.claude.quarkus.quarkusapi.app.models.dto.PageDto;
 import com.andres.course.claude.quarkus.quarkusapi.app.models.dto.UserDto;
+import com.andres.course.claude.quarkus.quarkusapi.app.models.dto.UserFilter;
 import com.andres.course.claude.quarkus.quarkusapi.app.repositories.UserRepository;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
@@ -122,5 +125,18 @@ class UserServiceTest {
         service.delete(user.id(), "admin@ejemplo.com");
 
         assertTrue(repository.findByIdOptional(user.id()).isEmpty());
+    }
+
+    @Test
+    void searchFiltersByRole() {
+        service.create(new UserDto(null, "ana@ejemplo.com", "secreto123", "user"));
+        service.create(new UserDto(null, "luis@ejemplo.com", "secreto123", "admin"));
+
+        PageDto<UserDto> page = service.search(
+                new UserFilter(0, 10, "email", "asc", null, "admin", null, null));
+
+        assertTrue(page.content().stream().allMatch(user -> "admin".equals(user.role())));
+        assertTrue(page.content().stream().map(UserDto::email).toList().contains("luis@ejemplo.com"));
+        assertEquals(page.totalElements(), repository.countByRole(Role.ADMIN));
     }
 }

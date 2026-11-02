@@ -29,7 +29,8 @@ controllers/   CustomerController, UserController (/api/users), AuthController (
 services/      XxxService (interface) + XxxServiceImpl (@ApplicationScoped, @Transactional)
 repositories/  CustomerRepository, UserRepository: clase @ApplicationScoped implements PanacheRepository
 entities/      Customer, User (tabla users), Role (enum USER/ADMIN + constantes Role.Names)
-models/dto/    CustomerDto, UserDto (password WRITE_ONLY), LoginDto, ErrorDto
+models/dto/    CustomerDto, UserDto (password WRITE_ONLY), LoginDto, ErrorDto, PageDto,
+               CustomerFilter y UserFilter (query params de paginación, orden y filtros)
 mappers/       CustomerMapper, UserMapper: conversión explícita, nunca copian el password
 security/      PasswordHasher (bcrypt), TokenService (firma el JWT), AdminSeeder (admin inicial)
 exceptions/    GlobalExceptionMapper (todo error es ErrorDto) y EmptyErrorResponseFilter (400 de CSRF)
@@ -46,10 +47,16 @@ exceptions/    GlobalExceptionMapper (todo error es ErrorDto) y EmptyErrorRespon
 - **Repositories**: una sola clase Panache, sin interface ni `Impl`.
 - **Entities**: no extienden `PanacheEntity`; `id` `Long` `IDENTITY`; `createdAt`/`updatedAt` con
   `@PrePersist`/`@PreUpdate`, solo con getter.
-- **DTO**: un `record` por recurso, Bean Validation con mensajes en español. Sin fechas de auditoría
-  ni datos sensibles; el password de `UserDto` es `@JsonProperty(access = WRITE_ONLY)` y se exige
+- **DTO**: un `record` por recurso, Bean Validation con mensajes en español. Sin datos sensibles.
+  Excepción a la skill, pedida para el frontend: `createdAt`/`updatedAt` viajan como
+  `@JsonProperty(access = READ_ONLY)` (se devuelven, se ignoran al recibir); un constructor sin
+  fechas mantiene `new XxxDto(id, ...)`. El password de `UserDto` es `@JsonProperty(access = WRITE_ONLY)` y se exige
   al crear con el grupo `UserDto.OnCreate` (`@ConvertGroup`).
 - **Mappers**: `toDto`, `toEntity`, `updateEntity` a mano; el hash del password lo hace el service.
+- **Listados paginados**: `GET` de la colección recibe un record de filtro con `@Valid @BeanParam`
+  (`page` desde 0, `size` 1-100, `sort` y `dir` validados con lista blanca), el repository arma la
+  consulta con `search(filter)` solo con los filtros que llegan, como parámetros, y el service
+  devuelve `PageDto.of(...)`. El orden desempata por `id` para que las páginas sean estables.
 - Inyección por constructor.
 
 ## Seguridad

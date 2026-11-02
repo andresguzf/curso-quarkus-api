@@ -1,7 +1,9 @@
 package com.andres.course.claude.quarkus.quarkusapi.app.controllers;
 
 import com.andres.course.claude.quarkus.quarkusapi.app.entities.Role;
+import com.andres.course.claude.quarkus.quarkusapi.app.models.dto.PageDto;
 import com.andres.course.claude.quarkus.quarkusapi.app.models.dto.UserDto;
+import com.andres.course.claude.quarkus.quarkusapi.app.models.dto.UserFilter;
 import com.andres.course.claude.quarkus.quarkusapi.app.services.UserService;
 import io.quarkus.security.identity.SecurityIdentity;
 import jakarta.annotation.security.RolesAllowed;
@@ -9,6 +11,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.groups.ConvertGroup;
 import jakarta.validation.groups.Default;
+import jakarta.ws.rs.BeanParam;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
@@ -23,7 +26,6 @@ import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 
 import java.net.URI;
-import java.util.List;
 
 // Administración de usuarios: solo admin
 @Path("/api/users")
@@ -42,9 +44,9 @@ public class UserController {
     }
 
     @GET
-    @Operation(summary = "Lista todos los usuarios")
-    public List<UserDto> findAll() {
-        return service.findAll();
+    @Operation(summary = "Lista los usuarios paginados, con orden y filtros opcionales")
+    public PageDto<UserDto> findAll(@Valid @BeanParam UserFilter filter) {
+        return service.search(filter);
     }
 
     @GET

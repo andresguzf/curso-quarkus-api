@@ -3,7 +3,10 @@ package com.andres.course.claude.quarkus.quarkusapi.app.services;
 import com.andres.course.claude.quarkus.quarkusapi.app.entities.Customer;
 import com.andres.course.claude.quarkus.quarkusapi.app.mappers.CustomerMapper;
 import com.andres.course.claude.quarkus.quarkusapi.app.models.dto.CustomerDto;
+import com.andres.course.claude.quarkus.quarkusapi.app.models.dto.CustomerFilter;
+import com.andres.course.claude.quarkus.quarkusapi.app.models.dto.PageDto;
 import com.andres.course.claude.quarkus.quarkusapi.app.repositories.CustomerRepository;
+import io.quarkus.hibernate.orm.panache.PanacheQuery;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.ClientErrorException;
@@ -24,8 +27,10 @@ public class CustomerServiceImpl implements CustomerService {
     }
 
     @Override
-    public List<CustomerDto> findAll() {
-        return repository.listAll().stream().map(mapper::toDto).toList();
+    public PageDto<CustomerDto> search(CustomerFilter filter) {
+        PanacheQuery<Customer> query = repository.search(filter);
+        List<CustomerDto> content = query.list().stream().map(mapper::toDto).toList();
+        return PageDto.of(content, filter.page(), filter.size(), query.count());
     }
 
     @Override

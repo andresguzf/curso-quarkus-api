@@ -101,20 +101,43 @@ Todos los endpoints de `/api/customers` y `/api/users` requieren sesión (ver [S
 
 | Método | Ruta | Descripción | Rol | Respuestas |
 |---|---|---|---|---|
-| GET | `/api/customers` | Lista todos los clientes | user, admin | 200 |
+| GET | `/api/customers` | Lista paginada con orden y filtros (ver abajo) | user, admin | 200, 400 |
 | GET | `/api/customers/{id}` | Busca por id | user, admin | 200, 404 |
 | GET | `/api/customers/email/{email}` | Busca por email | user, admin | 200, 404 |
 | GET | `/api/customers/search?term=` | Busca por nombre o apellido, sin distinguir mayúsculas | user, admin | 200, 400 |
 | POST | `/api/customers` | Crea un cliente | admin | 201, 400, 409 |
 | PUT | `/api/customers/{id}` | Actualiza un cliente | admin | 200, 400, 404, 409 |
 | DELETE | `/api/customers/{id}` | Elimina un cliente | admin | 204, 404 |
-| GET | `/api/users` | Lista los usuarios | admin | 200 |
+| GET | `/api/users` | Lista paginada con orden y filtros (ver abajo) | admin | 200, 400 |
 | GET | `/api/users/{id}` | Busca un usuario | admin | 200, 404 |
 | POST | `/api/users` | Crea un usuario con el rol indicado (`user` por defecto) | admin | 201, 400, 409 |
 | PUT | `/api/users/{id}` | Edita email, rol y, si se envía, el password | admin | 200, 400, 404, 409 |
 | DELETE | `/api/users/{id}` | Elimina un usuario | admin | 204, 404, 409 |
 
 El email es único: si ya está registrado por otro cliente, la API responde **409**.
+
+### Paginación, orden y filtros
+
+`GET /api/customers` y `GET /api/users` devuelven una página:
+
+```json
+{"content": [ ... ], "page": 0, "size": 10, "totalElements": 57, "totalPages": 6}
+```
+
+| Query param | Clientes | Usuarios | Por defecto |
+|---|---|---|---|
+| `page` | página, desde 0 | igual | `0` |
+| `size` | elementos por página, 1 a 100 | igual | `10` |
+| `sort` | `name`, `lastName`, `email`, `createdAt` | `email`, `role`, `createdAt` | `createdAt` |
+| `dir` | `asc`, `desc` | igual | `desc` |
+| `name`, `lastName`, `email` | contiene, sin distinguir mayúsculas | solo `email` | — |
+| `role` | — | `user`, `admin` | — |
+| `createdFrom`, `createdTo` | fecha de alta `YYYY-MM-DD`, ambos días incluidos | igual | — |
+
+Un `sort`, `dir`, `role` o `size` inválido responde **400** con el detalle en `errors`.
+Ejemplo: `GET /api/customers?page=0&size=5&lastName=gu&sort=createdAt&dir=desc`.
+
+Los clientes y usuarios incluyen `createdAt` y `updatedAt` (solo lectura: se ignoran si se envían).
 
 ## Seguridad
 
@@ -132,7 +155,7 @@ las extensiones nativas de Quarkus (smallrye-jwt, Quarkus Security, Elytron bcry
 | POST | `/api/auth/register` | público | Registra un usuario; siempre con rol `user` |
 | POST | `/api/auth/login` | público | Valida email y password, y deja el JWT en la cookie `access_token` |
 | POST | `/api/auth/logout` | público | Borra la cookie de sesión |
-| GET | `/api/auth/me` | con sesión | Devuelve el usuario de la sesión |
+| GET | `/api/auth/me` | público | Devuelve el usuario de la sesión, o 204 si no hay sesión |
 
 **Cómo funciona:**
 
@@ -220,7 +243,7 @@ security/      hash bcrypt, firma del JWT y creación del admin inicial
 ```
 
 - Los controllers inyectan la interface del service y solo trabajan con DTO.
-- Las fechas de auditoría se llenan solas con `@PrePersist` y `@PreUpdate` y no viajan en el DTO.
+- Las fechas de auditoría se llenan solas con `@PrePersist` y `@PreUpdate` y viajan en el DTO solo como lectura.
 - Para agregar un recurso nuevo: entity → repository → DTO → mapper → service → controller.
 
 ## Tests

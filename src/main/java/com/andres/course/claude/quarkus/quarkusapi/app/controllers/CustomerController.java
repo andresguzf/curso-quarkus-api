@@ -2,11 +2,14 @@ package com.andres.course.claude.quarkus.quarkusapi.app.controllers;
 
 import com.andres.course.claude.quarkus.quarkusapi.app.entities.Role;
 import com.andres.course.claude.quarkus.quarkusapi.app.models.dto.CustomerDto;
+import com.andres.course.claude.quarkus.quarkusapi.app.models.dto.CustomerFilter;
+import com.andres.course.claude.quarkus.quarkusapi.app.models.dto.PageDto;
 import com.andres.course.claude.quarkus.quarkusapi.app.services.CustomerService;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.ws.rs.BeanParam;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
@@ -39,9 +42,9 @@ public class CustomerController {
     }
 
     @GET
-    @Operation(summary = "Lista todos los clientes")
-    public List<CustomerDto> findAll() {
-        return service.findAll();
+    @Operation(summary = "Lista los clientes paginados, con orden y filtros opcionales")
+    public PageDto<CustomerDto> findAll(@Valid @BeanParam CustomerFilter filter) {
+        return service.search(filter);
     }
 
     @GET

@@ -2,6 +2,8 @@ package com.andres.course.claude.quarkus.quarkusapi.app.services;
 
 import com.andres.course.claude.quarkus.quarkusapi.app.entities.Customer;
 import com.andres.course.claude.quarkus.quarkusapi.app.models.dto.CustomerDto;
+import com.andres.course.claude.quarkus.quarkusapi.app.models.dto.CustomerFilter;
+import com.andres.course.claude.quarkus.quarkusapi.app.models.dto.PageDto;
 import com.andres.course.claude.quarkus.quarkusapi.app.repositories.CustomerRepository;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
@@ -54,11 +56,29 @@ class CustomerServiceTest {
     }
 
     @Test
-    void findAllReturnsAllCustomers() {
+    void searchReturnsPageWithTotals() {
+        service.create(newCustomer("Ana", "Pérez", "ana@ejemplo.com"));
+        service.create(newCustomer("Luis", "Soto", "luis@ejemplo.com"));
+        service.create(newCustomer("Marta", "Gómez", "marta@ejemplo.com"));
+
+        PageDto<CustomerDto> page = service.search(
+                new CustomerFilter(0, 2, "name", "asc", null, null, null, null, null));
+
+        assertEquals(List.of("Ana", "Luis"), page.content().stream().map(CustomerDto::name).toList());
+        assertEquals(3, page.totalElements());
+        assertEquals(2, page.totalPages());
+        assertNotNull(page.content().getFirst().createdAt());
+    }
+
+    @Test
+    void searchFiltersByNameIgnoringCase() {
         service.create(newCustomer("Ana", "Pérez", "ana@ejemplo.com"));
         service.create(newCustomer("Luis", "Soto", "luis@ejemplo.com"));
 
-        assertEquals(2, service.findAll().size());
+        PageDto<CustomerDto> page = service.search(
+                new CustomerFilter(0, 10, "createdAt", "desc", "LU", null, null, null, null));
+
+        assertEquals(List.of("Luis"), page.content().stream().map(CustomerDto::name).toList());
     }
 
     @Test

@@ -4,7 +4,6 @@ import com.andres.course.claude.quarkus.quarkusapi.app.models.dto.LoginDto;
 import com.andres.course.claude.quarkus.quarkusapi.app.models.dto.UserDto;
 import com.andres.course.claude.quarkus.quarkusapi.app.security.TokenService;
 import com.andres.course.claude.quarkus.quarkusapi.app.services.UserService;
-import io.quarkus.security.Authenticated;
 import io.quarkus.security.identity.SecurityIdentity;
 import jakarta.annotation.security.PermitAll;
 import jakarta.validation.Valid;
@@ -89,12 +88,17 @@ public class AuthController {
         return Response.noContent().cookie(sessionCookie("", 0)).build();
     }
 
+    // Sin sesión responde 204 y no 401: el frontend lo consulta al cargar, y no tener sesión no es un error.
+    // Un token inválido sigue respondiendo 401 (lo rechaza la autenticación antes de llegar aquí)
     @GET
     @Path("/me")
-    @Authenticated
-    @Operation(summary = "Devuelve el usuario de la sesión")
-    public UserDto me() {
-        return service.findByEmail(identity.getPrincipal().getName());
+    @PermitAll
+    @Operation(summary = "Devuelve el usuario de la sesión, o 204 si no hay sesión")
+    public Response me() {
+        if (identity.isAnonymous()) {
+            return Response.noContent().build();
+        }
+        return Response.ok(service.findByEmail(identity.getPrincipal().getName())).build();
     }
 
     // HttpOnly: el JavaScript del navegador no puede leer el token. SameSite=Strict: el navegador no la envía
