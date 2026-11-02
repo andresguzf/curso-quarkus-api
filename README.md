@@ -155,7 +155,7 @@ las extensiones nativas de Quarkus (smallrye-jwt, Quarkus Security, Elytron bcry
 | POST | `/api/auth/register` | público | Registra un usuario; siempre con rol `user` |
 | POST | `/api/auth/login` | público | Valida email y password, y deja el JWT en la cookie `access_token` |
 | POST | `/api/auth/logout` | público | Borra la cookie de sesión |
-| GET | `/api/auth/me` | con sesión | Devuelve el usuario de la sesión |
+| GET | `/api/auth/me` | público | Devuelve el usuario de la sesión, o 204 si no hay sesión |
 
 **Cómo funciona:**
 

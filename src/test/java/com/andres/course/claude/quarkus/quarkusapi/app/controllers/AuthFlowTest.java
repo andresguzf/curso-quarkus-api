@@ -124,6 +124,15 @@ class AuthFlowTest {
     }
 
     @Test
+    void meWithoutSessionReturns204AndWithInvalidToken401() {
+        RestAssured.given().when().get("/api/auth/me")
+                .then().statusCode(204);
+        RestAssured.given().cookie(SESSION_COOKIE, "token-invalido")
+                .when().get("/api/auth/me")
+                .then().statusCode(401);
+    }
+
+    @Test
     void withoutSessionReturns401Json() {
         RestAssured.given().when().get("/api/customers")
                 .then().statusCode(401)
