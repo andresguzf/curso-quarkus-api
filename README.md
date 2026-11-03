@@ -1,13 +1,13 @@
 # curso-quarkus-api
 
 API REST para gestionar clientes (`Customer`), construida con **Quarkus 3.40 LTS**, **Java 25**,
-**Hibernate ORM con Panache** y **PostgreSQL**. Proyecto del curso de Quarkus.
+**Hibernate ORM con Panache** y **PostgreSQL en Supabase**. Proyecto del curso de Quarkus.
 
 ## Requisitos
 
 - JDK 25
-- Docker o Podman corriendo: en desarrollo y en tests, Quarkus descarga y levanta PostgreSQL
-  (y pgAdmin en dev) en contenedores; no hace falta instalar nada más
+- Un proyecto en [Supabase](https://supabase.com) (PostgreSQL administrado): `dev` y `prod` se conectan ahí
+- Docker o Podman corriendo solo para los tests: Quarkus levanta un PostgreSQL temporal
 - No hace falta instalar Maven: el proyecto incluye el wrapper `./mvnw` (Maven 3.9.16)
 
 ## Stack
@@ -18,6 +18,7 @@ API REST para gestionar clientes (`Customer`), construida con **Quarkus 3.40 LTS
 | Quarkus | 3.40.1.1 (LTS) |
 | Hibernate ORM + Panache | 7.4.9.Final |
 | Driver PostgreSQL | 42.7.13 |
+| Base de datos | PostgreSQL en Supabase (Session pooler) |
 | Tests | JUnit 5 + REST Assured + Quarkus Test Security |
 
 Extensiones de Quarkus: REST Jackson, ArC (CDI), Hibernate Validator, SmallRye OpenAPI,
@@ -26,31 +27,36 @@ Hibernate ORM Panache, JDBC PostgreSQL, SmallRye JWT (verificación y firma), El
 
 ## Configuración
 
-1. Copia el archivo de ejemplo y, si quieres, cambia las credenciales:
+1. Copia el archivo de ejemplo:
 
    ```bash
    cp .env.example .env
    ```
 
+2. En Supabase abre **Connect > JDBC > Session pooler** y completa el `.env`:
+
    | Variable | Uso |
    |---|---|
-   | `DB_URL` | Solo `prod`: URL JDBC de la base real |
-   | `DB_USERNAME` | `dev`: usuario del contenedor `quarkusapi-postgres`. `prod`: usuario de la base real |
-   | `DB_PASSWORD` | `dev`: contraseña del contenedor `quarkusapi-postgres`. `prod`: contraseña de la base real |
-   | `PGADMIN_EMAIL` / `PGADMIN_PASSWORD` | Login de pgAdmin |
+   | `DB_URL` | URL JDBC del Session pooler con `?sslmode=require`, sin usuario ni contraseña |
+   | `DB_USERNAME` | Usuario del pooler: `postgres.<project-ref>` |
+   | `DB_PASSWORD` | Contraseña de la base de Supabase |
    | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Admin inicial de la API: se crea al arrancar si no existe ningún admin |
    | `JWT_PRIVATE_KEY_LOCATION` / `JWT_PUBLIC_KEY_LOCATION` | Solo `prod`: claves PEM para firmar y verificar el JWT |
+   | `PGADMIN_EMAIL` / `PGADMIN_PASSWORD` | Solo si usas el compose local (ver abajo) |
 
-2. Ten Docker o Podman corriendo. No hay que crear la base de datos ni levantar contenedores a mano.
+   Usa el **Session pooler** y no la conexión directa: la directa solo funciona por IPv6 en el plan
+   gratuito.
 
 `.env` está en `.gitignore` y no se debe versionar. La configuración vive en
 `src/main/resources/application.properties`:
 
 | Perfil | Base de datos | Esquema |
 |---|---|---|
-| `dev` (`./mvnw quarkus:dev`) | Contenedor `quarkusapi-postgres` de `compose-devservices.yml` en `localhost:5432`, base `quarkusapi` | `update` (los datos se conservan) |
+| `dev` (`./mvnw quarkus:dev`) | Supabase, con `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` del `.env` | `update` (crea tablas y columnas nuevas, no borra datos) |
 | `test` (`./mvnw test`) | Contenedor `postgres:18` temporal de Dev Services, en un puerto aleatorio | `drop-and-create` |
-| `prod` (jar empaquetado) | Variables de entorno `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` | `validate` |
+| `prod` (jar empaquetado) | Supabase, con las variables `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` del entorno | `validate` |
+
+Los tests nunca tocan Supabase: `drop-and-create` borraría las tablas en cada ejecución.
 
 ## Ejecutar en desarrollo
 
@@ -62,38 +68,26 @@ Hibernate ORM Panache, JDBC PostgreSQL, SmallRye JWT (verificación y firma), El
 - Swagger UI: http://localhost:8080/q/swagger-ui
 - Dev UI: http://localhost:8080/q/dev-ui
 
-Dev mode aplica los cambios del código en el siguiente request (live reload).
+Dev mode aplica los cambios del código en el siguiente request (live reload). Los datos se ven y
+editan desde el **Table Editor** de Supabase.
 
-### Contenedores de desarrollo (PostgreSQL + pgAdmin)
+### Compose local (desactivado)
 
-`compose-devservices.yml` define dos contenedores. `./mvnw quarkus:dev` los gestiona solo
-(Compose Dev Services): si ya están corriendo los reutiliza, si están detenidos los arranca y, si
-no existen, descarga las imágenes y los crea.
+`compose-devservices.yml` (PostgreSQL 18 + pgAdmin) era la base de desarrollo antes de Supabase. Queda
+en el repo como referencia, pero `quarkus.compose.devservices.enabled=false` evita que `quarkus:dev`
+lo levante. Sus datos viven en el volumen `quarkusapi-postgres-data`.
 
-| Contenedor | Imagen | Puerto | Volumen |
-|---|---|---|---|
-| `quarkusapi-postgres` | `postgres:18` | `localhost:5432` | `quarkusapi-postgres-data` |
-| `quarkusapi-pgadmin` | `dpage/pgadmin4` | http://localhost:5050 | `quarkusapi-pgadmin-data` |
-
-- Al detener la app los contenedores **siguen corriendo** y no se borran.
-- Tienen `restart: unless-stopped`: Docker los vuelve a iniciar cuando arranca.
-- Los datos viven en volúmenes de Docker con nombre, así que sobreviven a reinicios y a la
-  recreación de los contenedores. En dev el esquema usa `update`: crea tablas y columnas nuevas,
-  pero no borra datos ni columnas.
-- pgAdmin: ingresa con `PGADMIN_EMAIL` y `PGADMIN_PASSWORD`. El servidor **quarkusapi (dev)**
-  (grupo *Quarkus*) viene registrado desde `docker/pgadmin/servers.json`; la primera vez pide la
-  contraseña, que es `DB_PASSWORD`.
-
-Comandos útiles (desde la raíz; `docker compose` lee el `.env` solo):
+Para pasar sus datos a Supabase (con las tablas ya creadas por un primer `quarkus:dev`), sin instalar
+`psql`, desde la raíz:
 
 ```bash
-docker compose -f compose-devservices.yml up -d     # levantarlos sin la app
-docker compose -f compose-devservices.yml stop      # detenerlos (conserva datos)
-docker compose -f compose-devservices.yml down -v   # borrarlos junto con sus datos
+export PGUSER="$(grep '^DB_USERNAME=' .env | cut -d= -f2-)" PGPASSWORD="$(grep '^DB_PASSWORD=' .env | cut -d= -f2-)"
+{ echo "TRUNCATE customers, users RESTART IDENTITY;"; docker exec quarkusapi-postgres sh -c 'pg_dump -U "$POSTGRES_USER" -d quarkusapi --data-only --column-inserts -t customers -t users' | grep -v '^SET transaction_timeout'; } \
+  | docker run --rm -i -e PGUSER -e PGPASSWORD postgres:18 psql "host=<host-del-pooler> port=5432 dbname=postgres sslmode=require" --single-transaction -v ON_ERROR_STOP=1
 ```
 
-Si cambias `PGADMIN_EMAIL`, `PGADMIN_PASSWORD` o las credenciales de la base, hay que recrear el
-volumen correspondiente (`down -v`), porque solo se aplican al crearlo.
+Vacía las tablas de Supabase, copia las filas y deja las secuencias en el último id, todo en una
+transacción.
 
 ## Endpoints
 

@@ -74,9 +74,9 @@ exceptions/    GlobalExceptionMapper (todo error es ErrorDto) y EmptyErrorRespon
 
 ## Base de datos y perfiles
 
-- **dev**: `compose-devservices.yml` con `quarkusapi-postgres` (5432) y `quarkusapi-pgadmin` (5050);
-  `quarkus:dev` los crea o arranca y no los detiene. Volúmenes `quarkusapi-*-data`. Esquema `update`.
-  No definir `jdbc.url` en dev: desactiva Dev Services.
+- **dev**: Supabase (Session pooler, `sslmode=require`) con `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` del
+  `.env`; esquema `update`. El compose local (`compose-devservices.yml`, PostgreSQL + pgAdmin) queda
+  desactivado con `quarkus.compose.devservices.enabled=false`.
 - **test**: sin compose; Dev Services crea un `postgres:18` temporal; `drop-and-create`; sin admin semilla.
 - **prod**: `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`; esquema `validate`.
 - `.env` está en `.gitignore`: nunca versionarlo ni escribir credenciales reales en el código.
