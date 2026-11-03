@@ -258,14 +258,44 @@ La primera ejecución descarga la imagen `postgres:18` (unos 150 MB).
 ## Empaquetar y ejecutar
 
 ```bash
-./mvnw package
-java -jar target/quarkus-app/quarkus-run.jar
+./mvnw package                                # corre los tests: necesita Docker (o -DskipTests)
+java -jar target/quarkus-app/quarkus-run.jar  # perfil prod
 ```
 
-El jar usa el perfil `prod`, así que necesita las variables `DB_URL`, `DB_USERNAME`,
-`DB_PASSWORD`, `JWT_PRIVATE_KEY_LOCATION` y `JWT_PUBLIC_KEY_LOCATION` definidas en el entorno.
-En prod el esquema se valida (`validate`): las tablas `customers` y `users` deben existir antes. En `src/main/docker/` están los Dockerfile generados
-por Quarkus (JVM y nativo).
+El jar usa el perfil `prod`. Antes de la primera ejecución:
+
+1. **Claves del JWT.** En dev y test Quarkus las genera en memoria; en prod se leen de archivos PEM.
+   Genéralas una sola vez en `keys/` (está en `.gitignore`):
+
+   ```bash
+   mkdir -p keys
+   openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out keys/privateKey.pem
+   openssl pkey -in keys/privateKey.pem -pubout -out keys/publicKey.pem
+   ```
+
+   `JWT_PRIVATE_KEY_LOCATION` y `JWT_PUBLIC_KEY_LOCATION` apuntan a ellas. Si cambian, las sesiones
+   abiertas dejan de valer. Sin estas variables la app no arranca.
+
+2. **Variables.** `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, las dos de las claves y `COOKIE_SECURE=false`
+   si se prueba por http. Quarkus lee el `.env`
+   del **directorio actual**, así que ejecuta el jar desde la raíz del proyecto; en un servidor
+   defínelas como variables de entorno. El jar necesita toda la carpeta `target/quarkus-app/`.
+
+3. **Esquema.** En prod se valida (`validate`): las tablas `customers` y `users` deben existir antes.
+   Hoy dev y prod comparten la base de Supabase, así que `quarkus:dev` (con `update`) las crea y las
+   modifica también para prod.
+
+Diferencias de prod frente a dev:
+
+| Tema | prod |
+|---|---|
+| Cookies `access_token` y `csrf-token` | `Secure` (solo viajan por HTTPS) salvo con `COOKIE_SECURE=false`. Para el curso el jar corre en local por http, así que el `.env` lo deja en `false`; en un servidor real con HTTPS se quita |
+| Swagger UI y `/q/openapi` | Desactivados (`%prod.quarkus.swagger-ui.enabled=false`, `%prod.quarkus.smallrye-openapi.enabled=false`) |
+| Dev UI | No existe en el jar |
+| SQL en el log | No se registra |
+| Pool de conexiones | `quarkus.datasource.jdbc.max-size=8` (en todos los perfiles) para no agotar el Session pooler de Supabase |
+
+En `src/main/docker/` están los Dockerfile generados por Quarkus (JVM y nativo).
 
 ## Guías útiles
 

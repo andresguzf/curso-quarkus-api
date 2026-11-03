@@ -70,7 +70,7 @@ exceptions/    GlobalExceptionMapper (todo error es ErrorDto) y EmptyErrorRespon
   `AdminSeeder` con `ADMIN_EMAIL`/`ADMIN_PASSWORD` si no existe ninguno.
 - Reglas de usuarios: email único, un admin no se elimina a sí mismo, siempre queda al menos un admin.
 - Claves JWT: en dev y test Quarkus genera un par en memoria; en prod `JWT_PRIVATE_KEY_LOCATION` y
-  `JWT_PUBLIC_KEY_LOCATION`. `quarkus.http.auth.proactive=false` para que los 401 pasen por el mapper.
+  `JWT_PUBLIC_KEY_LOCATION` (en local `keys/*.pem`, ignorada por git; sin ellas prod no arranca). `quarkus.http.auth.proactive=false` para que los 401 pasen por el mapper.
 
 ## Base de datos y perfiles
 
@@ -78,7 +78,10 @@ exceptions/    GlobalExceptionMapper (todo error es ErrorDto) y EmptyErrorRespon
   `.env`; esquema `update`. El compose local (`compose-devservices.yml`, PostgreSQL + pgAdmin) queda
   desactivado con `quarkus.compose.devservices.enabled=false`.
 - **test**: sin compose; Dev Services crea un `postgres:18` temporal; `drop-and-create`; sin admin semilla.
-- **prod**: `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`; esquema `validate`.
+- **prod**: `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`; esquema `validate`. Hoy comparte la base de Supabase con dev.
+  Swagger UI y OpenAPI apagados. `java -jar` desde la raíz para que lea el `.env`. Sin HTTPS en local:
+  `COOKIE_SECURE=false` quita `Secure` de `access_token` y `csrf-token` (por defecto `true`).
+- Pool: `quarkus.datasource.jdbc.max-size=8` para no agotar el Session pooler de Supabase.
 - `.env` está en `.gitignore`: nunca versionarlo ni escribir credenciales reales en el código.
 
 ## Tests
