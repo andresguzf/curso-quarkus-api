@@ -1,0 +1,7 @@
+# Contexto de Dockerfile.jvm (extensión container-image-docker): solo entra el build ya compilado.
+# BuildKit lo usa en vez del .dockerignore de la raíz por llamarse <Dockerfile>.dockerignore.
+*
+!target/*-runner
+!target/*-runner.jar
+!target/lib/*
+!target/quarkus-app/*

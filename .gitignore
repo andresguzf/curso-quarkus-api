@@ -43,3 +43,7 @@ nb-configuration.xml
 /.quarkus/cli/plugins/
 # TLS Certificates
 .certs/
+
+# Claves PEM del JWT en prod (nunca versionarlas)
+keys/
+*.pem

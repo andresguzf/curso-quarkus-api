@@ -1,5 +1,8 @@
+# Contexto del Dockerfile de la raíz (multi-stage, el que usa Render): compila desde el código fuente.
+# Nunca entran secretos ni el build local. Dockerfile.jvm usa su propio src/main/docker/Dockerfile.jvm.dockerignore.
 *
-!target/*-runner
-!target/*-runner.jar
-!target/lib/*
-!target/quarkus-app/*
+!mvnw
+!.mvn/
+!pom.xml
+!src/
+src/main/docker/
