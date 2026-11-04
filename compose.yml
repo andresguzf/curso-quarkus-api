@@ -1,0 +1,21 @@
+# Producción local: la API (perfil prod) en Docker, conectada a Supabase.
+# 1) ./mvnw package -Dquarkus.container-image.build=true   (construye andresguzf/quarkus-api)
+# 2) docker compose up -d                                   (http://localhost:8080)
+# No confundir con compose-devservices.yml (PostgreSQL + pgAdmin locales, desactivado).
+name: quarkusapi-prod
+
+services:
+  app:
+    image: andresguzf/quarkus-api:latest
+    container_name: quarkusapi-app
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    # DB_*, ADMIN_*, COOKIE_SECURE... salen del .env (nunca se copia a la imagen)
+    env_file: .env
+    environment:
+      # Las claves se montan desde ./keys; dentro del contenedor la ruta es absoluta
+      JWT_PRIVATE_KEY_LOCATION: /deployments/keys/privateKey.pem
+      JWT_PUBLIC_KEY_LOCATION: /deployments/keys/publicKey.pem
+    volumes:
+      - ./keys:/deployments/keys:ro

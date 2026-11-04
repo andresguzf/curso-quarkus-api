@@ -10,7 +10,7 @@ Java 25 · Quarkus 3.40.1.1 LTS · Hibernate ORM 7.4.9.Final (Panache clásico) 
 
 Extensiones: `quarkus-rest-jackson`, `quarkus-arc`, `quarkus-hibernate-validator`, `quarkus-smallrye-openapi`,
 `quarkus-hibernate-orm-panache`, `quarkus-jdbc-postgresql`, `quarkus-smallrye-jwt`, `quarkus-smallrye-jwt-build`,
-`quarkus-elytron-security-common` (bcrypt) y `quarkus-rest-csrf`. Packaging `jar`. Config solo en `application.properties`.
+`quarkus-elytron-security-common` (bcrypt), `quarkus-rest-csrf` y `quarkus-container-image-docker`. Packaging `jar`. Config solo en `application.properties`.
 
 ## Comandos
 
@@ -18,6 +18,8 @@ Extensiones: `quarkus-rest-jackson`, `quarkus-arc`, `quarkus-hibernate-validator
 ./mvnw quarkus:dev            # dev mode; Swagger UI en /q/swagger-ui, Dev UI en /q/dev-ui
 ./mvnw test                   # tests (levanta PostgreSQL con Docker)
 ./mvnw package -DskipTests    # jar en target/quarkus-app/
+./mvnw package -Dquarkus.container-image.build=true   # imagen andresguzf/quarkus-api
+docker compose up -d          # API en Docker (prod) con compose.yml, .env y ./keys montada
 ```
 
 ## Estructura
@@ -81,6 +83,11 @@ exceptions/    GlobalExceptionMapper (todo error es ErrorDto) y EmptyErrorRespon
 - **prod**: `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`; esquema `validate`. Hoy comparte la base de Supabase con dev.
   Swagger UI y OpenAPI apagados. `java -jar` desde la raíz para que lea el `.env`. Sin HTTPS en local:
   `COOKIE_SECURE=false` quita `Secure` de `access_token` y `csrf-token` (por defecto `true`).
+- Docker: `compose.yml` (contenedor `quarkusapi-app`) usa `env_file: .env`, monta `./keys` en `/deployments/keys`
+  y fija ahí `JWT_*_LOCATION` (el workdir del contenedor no es la raíz). La imagen no lleva `.env` ni claves.
+- Render: `Dockerfile` de la raíz (multi-stage, compila con `./mvnw` sin tests; su `.dockerignore` deja fuera
+  `.env`, `keys/` y `target/`). `Dockerfile.jvm` tiene su propio `Dockerfile.jvm.dockerignore`. Claves como
+  Secret Files en `/etc/secrets/`, `JWT_*_LOCATION` apuntando ahí; puerto `quarkus.http.port=${PORT:8080}`.
 - Pool: `quarkus.datasource.jdbc.max-size=8` para no agotar el Session pooler de Supabase.
 - `.env` está en `.gitignore`: nunca versionarlo ni escribir credenciales reales en el código.
 

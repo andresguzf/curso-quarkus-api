@@ -295,7 +295,62 @@ Diferencias de prod frente a dev:
 | SQL en el log | No se registra |
 | Pool de conexiones | `quarkus.datasource.jdbc.max-size=8` (en todos los perfiles) para no agotar el Session pooler de Supabase |
 
-En `src/main/docker/` están los Dockerfile generados por Quarkus (JVM y nativo).
+### Imagen Docker
+
+La extensión `quarkus-container-image-docker` construye la imagen en el mismo `package`, con
+`src/main/docker/Dockerfile.jvm` (UBI 9 + OpenJDK 25 y la carpeta `quarkus-app/`):
+
+```bash
+./mvnw package -Dquarkus.container-image.build=true   # andresguzf/quarkus-api:1.0.0-SNAPSHOT y :latest
+docker compose up -d                                   # http://localhost:8080
+docker compose logs -f app                             # ver el log
+docker compose down                                    # detener y borrar el contenedor
+```
+
+`compose.yml` levanta el contenedor `quarkusapi-app` en el perfil prod:
+
+- Las variables salen del `.env` (`env_file`); la imagen no lleva ni el `.env` ni las claves.
+- `./keys` se monta en `/deployments/keys` (solo lectura) y `compose.yml` fija ahí las rutas del JWT,
+  porque dentro del contenedor el directorio de trabajo no es la raíz del proyecto.
+- La imagen no se publica en ningún registro (`quarkus.container-image.push=false`).
+- Usa el puerto 8080: detén `java -jar` o `quarkus:dev` antes de levantarlo.
+
+`compose-devservices.yml` es otro archivo (la base local de antes) y sigue desactivado.
+
+
+## Desplegar en Render
+
+Render construye la imagen desde el repositorio con el `Dockerfile` de la raíz (multi-stage): la
+primera etapa compila con `./mvnw package -DskipTests` y la segunda deja solo el runtime (UBI 9 +
+OpenJDK 25). No hace falta subir `target/`. Para probarlo en local: `docker build -t quarkus-api .`
+
+| Archivo | Uso |
+|---|---|
+| `Dockerfile` + `.dockerignore` | Render (o `docker build .`): compila dentro de Docker; no entran `.env`, `keys/` ni `target/` |
+| `src/main/docker/Dockerfile.jvm` + `Dockerfile.jvm.dockerignore` | Local, con `./mvnw package -Dquarkus.container-image.build=true`: copia `target/quarkus-app` ya compilado |
+
+Pasos en el dashboard de Render:
+
+1. **New > Web Service**, elige el repositorio y la rama. Language: **Docker**, Dockerfile: `./Dockerfile`.
+   Región **Oregon (US West)**, la misma zona que el pooler de Supabase (`us-west-2`).
+2. **Secret Files**: crea `privateKey.pem` y `publicKey.pem` pegando el contenido de cada clave. Render
+   los deja en `/etc/secrets/` del contenedor al ejecutarlo; nunca van en la imagen ni en git.
+   Conviene un par distinto del local (mismos comandos `openssl` de arriba).
+3. **Environment Variables**:
+
+   | Variable | Valor |
+   |---|---|
+   | `DB_URL` / `DB_USERNAME` / `DB_PASSWORD` | Los mismos del Session pooler de Supabase |
+   | `JWT_PRIVATE_KEY_LOCATION` | `/etc/secrets/privateKey.pem` |
+   | `JWT_PUBLIC_KEY_LOCATION` | `/etc/secrets/publicKey.pem` |
+   | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Opcional: solo crean un admin si no existe ninguno |
+
+   **No** definas `COOKIE_SECURE`: Render sirve por HTTPS, así que las cookies van `Secure` (valor por
+   defecto). `PORT` lo pone Render y la app lo lee (`quarkus.http.port=${PORT:8080}`).
+4. **Health Check Path**: `/api/auth/csrf` (público, responde 204).
+
+En el plan gratuito el servicio se duerme tras unos minutos sin tráfico y la primera petición tarda
+en despertarlo. Swagger UI no está disponible en prod.
 
 ## Guías útiles
 
